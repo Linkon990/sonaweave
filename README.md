@@ -4,6 +4,10 @@ SonaWeave 是一个近距离声学数据链路实验台。它把短文本编码�
 
 ![SonaWeave 声波链路工作台](docs/sonaweave-preview.png)
 
+## 在线体验
+
+[sonaweave.pages.dev](https://sonaweave.pages.dev/) 由 Cloudflare Pages 托管。站点使用 HTTPS，浏览器端的编码、音频生成、回环和录音解码仍只在本机执行，不会上传消息或录音。
+
 ## 功能
 
 - UTF-8 文本的自适应 LZW12 压缩
