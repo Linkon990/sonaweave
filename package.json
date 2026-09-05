@@ -1,0 +1,46 @@
+{
+  "name": "sonaweave",
+  "private": true,
+  "version": "0.1.1",
+  "description": "A browser and Android workbench for sending short text over sound.",
+  "author": "Linkon",
+  "license": "MIT",
+  "keywords": [
+    "acoustic-data",
+    "dtmf",
+    "error-correction",
+    "fsk",
+    "offline-first"
+  ],
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0",
+    "build": "tsc -b && vite build",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "preview": "vite preview --host 0.0.0.0",
+    "android:sync": "npm run build && cap sync android",
+    "android:open": "npm run android:sync && cap open android",
+    "android:debug": "npm run android:sync && node scripts/run-android-gradle.mjs assembleDebug && npm run android:verify-offline",
+    "android:verify-offline": "node scripts/verify-android-offline.mjs",
+    "android:smoke": "node scripts/android-webview-smoke.mjs"
+  },
+  "dependencies": {
+    "@capacitor/android": "^8.5.1",
+    "@capacitor/core": "^8.5.1",
+    "@capacitor/filesystem": "^8.1.3",
+    "@capacitor/share": "^8.0.1",
+    "lucide-react": "latest",
+    "react": "latest",
+    "react-dom": "latest"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^8.5.1",
+    "@types/react": "latest",
+    "@types/react-dom": "latest",
+    "@vitejs/plugin-react": "latest",
+    "typescript": "latest",
+    "vite": "latest",
+    "vitest": "latest"
+  }
+}
