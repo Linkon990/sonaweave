@@ -1,0 +1,204 @@
+/* Window layout and secondary panels. Theme colours stay in styles.css. */
+.format-picker { display: flex; align-items: center; gap: 12px; flex: 0 0 auto; }
+.format-label { color: #b8c3bd; font-size: 12px; white-space: nowrap; }
+.page-switch button { transition: background-color 180ms, color 180ms, transform 160ms; }
+.page-switch button:active:not(:disabled) { transform: scale(.95); }
+.workspace-header { view-transition-name: format-header; }
+.main-content { view-transition-name: workspace; }
+.main-content { animation: workspace-in 240ms ease-out; }
+.receive-options { display: contents; }
+.operation-notice { display: flex; gap: 12px; align-items: center; justify-content: space-between; background: var(--paper); }
+.operation-notice > span { overflow-wrap: anywhere; min-width: 0; }
+.detail-trigger { display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; gap: 8px; min-height: 44px; padding: 8px 0; border: 0; border-top: 1px solid var(--line); background: transparent; color: var(--muted); font-size: 13px; text-align: left; transition: color 160ms, background-color 160ms; }
+.detail-trigger:hover { color: var(--ink); }
+.detail-trigger svg { transition: transform 180ms; }
+.detail-trigger:active svg { transform: translateX(3px); }
+.detail-prominent { color: var(--ink); }
+.detail-dialog { position: fixed; inset: auto 0 auto 0; top: calc(var(--workspace-top, 0px) + var(--workspace-height, 100dvh) / 2); translate: 0 -50%; width: min(620px, calc(100% - 24px)); max-height: min(86dvh, calc(var(--workspace-height, 100dvh) - 24px)); margin: 0 auto; padding: 0; border: 1px solid var(--line); border-radius: 18px; background: var(--paper); color: var(--ink); overflow: hidden; box-shadow: 0 24px 80px #0005; }
+.detail-dialog[open] { display: flex; animation: sheet-in 220ms cubic-bezier(.2,.7,.2,1); }
+.detail-dialog::backdrop { background: #0b171680; backdrop-filter: blur(3px); animation: backdrop-in 200ms ease-out; }
+.detail-surface { display: flex; flex-direction: column; width: 100%; min-height: 0; max-height: inherit; }
+.detail-heading { display: flex; align-items: center; justify-content: space-between; flex: 0 0 auto; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--line); }
+.detail-heading h2 { margin: 0; font-size: 16px; }
+.detail-heading .icon-button { min-width: 44px; min-height: 44px; }
+.detail-content { min-height: 0; overflow: auto; overscroll-behavior: contain; scrollbar-width: thin; padding: 16px; font-size: 14px; line-height: 1.7; }
+.detail-content.help-details, .detail-content.protocol-inspector, .detail-content.channel-lab { margin: 0; padding: 16px; border: 0; background: transparent; border-radius: 0; }
+.detail-content .recording-evidence { margin: 0; padding: 0; border: 0; }
+.detail-content .recording-evidence audio { min-height: 40px; }
+.detail-content .input-selector { margin: 0; }
+.detail-content .receive-actions { display: flex; align-items: stretch; flex-direction: column; }
+.detail-content .tool-button { min-height: 44px; }
+.detail-content .inspector-content { padding: 0; }
+@keyframes workspace-in { from { opacity: .55; transform: translateY(5px); } to { opacity: 1; transform: none; } }
+@keyframes workspace-out { to { opacity: 0; transform: translateY(-4px); } }
+@keyframes sheet-in { from { opacity: 0; transform: translateY(14px) scale(.985); } to { opacity: 1; transform: none; } }
+@keyframes backdrop-in { from { opacity: 0; } to { opacity: 1; } }
+::view-transition-old(workspace) { animation: workspace-out 140ms ease-in both; }
+::view-transition-new(workspace) { animation: workspace-in 240ms ease-out both; }
+::view-transition-group(format-header) { animation-duration: 180ms; }
+
+@media (max-width: 760px), (max-width: 1100px) and (max-height: 550px) {
+  html, body, #root { height: 100%; min-height: 0; overflow: hidden; background: var(--mobile-surface); }
+  .app-shell, .ggwave-app.app-shell {
+    position: fixed; top: var(--workspace-top, 0px); right: 0; left: 0;
+    display: flex; flex-direction: column; height: var(--workspace-height, 100dvh); min-height: 0;
+    padding: 0; background: var(--mobile-surface); overflow: hidden;
+  }
+  .workspace-header { flex: 0 0 auto; min-height: 76px; padding: calc(6px + var(--safe-top)) max(16px, var(--safe-right)) 6px max(16px, var(--safe-left)); gap: 8px; color: var(--ink); background: var(--mobile-surface); }
+  .workspace-header .brand-block { gap: 7px; }
+  .workspace-header .brand-block h1 { font-size: clamp(14px, 4vw, 17px); }
+  .workspace-header .brand-mark { width: 25px; height: 28px; flex-basis: 25px; }
+  /* Keep the format caption balanced beside the segmented control on phones. */
+  .format-picker { flex-direction: row; align-items: center; gap: 8px; min-width: 0; }
+  .format-label { flex: 0 0 auto; color: var(--muted); font-size: 11px; line-height: 1.2; padding-left: 0; }
+  .page-switch { gap: 2px; padding: 2px; border-color: var(--line); background: var(--control-surface); }
+  .page-switch button { flex: 1 1 0; min-width: 0; }
+  .page-switch button { min-height: 44px; padding: 5px 9px; color: var(--muted); }
+  .page-switch button span { font-size: 11px; }
+  .page-switch button.active { background: var(--paper); color: var(--ink); }
+  .page-switch button:hover:not(:disabled):not(.active) { background: var(--canvas); }
+  .command-bar { position: relative; top: auto; flex: 0 0 auto; min-height: 58px; padding: 6px max(16px, var(--safe-right)) 6px max(16px, var(--safe-left)); }
+  .command-bar::before { display: none; }
+  .mode-group { width: 100%; gap: 12px; }
+  .command-label { display: block; flex: 0 0 auto; font-size: 11px; color: var(--muted); }
+  .segmented-control { width: auto; flex: 1; min-width: 0; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .ggwave-app .segmented-control { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .segmented-control button { min-width: 0; min-height: 40px; padding: 6px; font-size: 12px; }
+  .main-content { flex: 1 1 0; min-height: 0; width: 100%; margin: 0; overflow: hidden; }
+  .workbench { display: block; height: 100%; min-height: 0; overflow: hidden; border: 0; border-radius: 0; background: var(--mobile-surface); box-shadow: none; }
+  .work-panel, .receiver-section, .diagnostics-section, .ggwave-app .diagnostics-section {
+    display: flex; flex-direction: column; height: 100%; min-height: 0; min-width: 0; gap: 10px;
+    margin: 0; padding: 14px max(16px, var(--safe-right)) 10px max(16px, var(--safe-left));
+    overflow: auto; overscroll-behavior: contain; scrollbar-width: thin;
+    border: 0; border-radius: 0; background: var(--mobile-surface); box-shadow: none;
+  }
+  .app-shell[data-mobile-view="encode"] .signal-panel,
+  .app-shell[data-mobile-view="encode"] .receiver-section,
+  .app-shell[data-mobile-view="encode"] .diagnostics-section,
+  .app-shell[data-mobile-view="signal"] .transmit-panel,
+  .app-shell[data-mobile-view="signal"] .receiver-section,
+  .app-shell[data-mobile-view="signal"] .diagnostics-section,
+  .app-shell[data-mobile-view="receive"] .workbench,
+  .app-shell[data-mobile-view="receive"] .diagnostics-section,
+  .app-shell[data-mobile-view="inspect"] .workbench,
+  .app-shell[data-mobile-view="inspect"] .receiver-section { display: none; }
+  .section-heading, .receiver-heading { flex: 0 0 auto; gap: 8px; margin: 0; }
+  .section-heading h2, .receiver-heading h2 { font-size: 20px; }
+  .field-label { flex: 0 0 auto; margin: 0; font-size: 12px; }
+  .transmit-panel { gap: 10px; }
+  .transmit-panel textarea { flex: 1 1 auto; min-height: 60px; height: 0; margin: 0; padding: 10px 12px; resize: none; font-size: 16px; line-height: 1.55; }
+  .quick-examples { display: flex; align-items: center; flex: 0 0 auto; gap: 12px; margin: 0; }
+  .quick-examples > span { flex-shrink: 0; margin: 0; font-size: 12px; }
+  .quick-examples select { min-width: 0; flex: 1; width: 0; min-height: 44px; padding: 6px 10px; }
+  .primary-action, .ggwave-app .primary-action, .ggwave-app .quick-examples + .primary-action { flex: 0 0 auto; min-height: 44px; margin: 0; }
+  .signal-panel .waveform-shell { flex: 1 1 auto; min-height: 76px; max-height: 360px; }
+  .signal-panel .waveform-canvas { height: 100%; }
+  .signal-panel .audio-toolbar { flex: 0 0 auto; min-height: 52px; padding: 4px 0; }
+  .signal-panel .secondary-action { flex: 0 0 auto; }
+  .signal-panel .receive-actions { flex: 0 0 auto; }
+  .receive-actions, .ggwave-app .receive-actions { display: flex; flex-wrap: wrap; gap: 8px; width: 100%; justify-content: flex-start; }
+  .receive-actions .tool-button { flex: 1 1 auto; }
+  .tool-button, .secondary-action { min-height: 44px; }
+  .receiver-heading { flex-direction: column; align-items: stretch; }
+  .receive-options { display: flex; flex: 0 0 auto; gap: 20px; }
+  .receive-options .detail-trigger { flex: 1; }
+  .receiver-grid { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 158px; overflow: hidden; border-radius: 8px; }
+  .decoded-output { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 90px; padding: 10px 12px; overflow: auto; border-right: 0; border-bottom: 1px solid var(--line); }
+  .decode-status-row { flex-shrink: 0; align-items: center; gap: 8px; }
+  .decode-status-row > div > span { max-height: 34px; overflow: auto; }
+  .decoded-message { display: block; flex: 1 1 auto; min-height: 28px; overflow: auto; overscroll-behavior: contain; margin-top: 8px; padding-top: 8px; }
+  .decoded-message p { font-size: 14px; line-height: 1.55; }
+  .receiver-grid > .telemetry { flex: 0 0 auto; padding: 6px 12px; }
+  .receiver-grid .telemetry-title { display: none; }
+  .receiver-grid .telemetry dl { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 3px 12px; margin: 0; }
+  .receiver-grid .telemetry dl > div { align-items: baseline; gap: 6px; padding: 3px 0; border: 0; min-width: 0; }
+  .receiver-grid .telemetry dt { font-size: 10px; }
+  .receiver-grid .telemetry dd { max-width: none; font-size: 10px; overflow-wrap: anywhere; }
+  .recording-meter { flex: 0 0 auto; margin: 0; padding: 10px 12px; font-size: 12px; }
+  .receiver-section:has(.recording-meter) .receiver-grid { display: none; }
+  .diagnostic-cards { display: flex; flex-direction: column; gap: 10px; }
+  .diagnostic-cards > .telemetry { padding: 12px; border-radius: 8px; }
+  .diagnostic-cards .telemetry dl { margin-top: 0; }
+  .metrics-band { flex: 0 0 auto; grid-template-columns: repeat(2, minmax(0, 1fr)); margin: 0; gap: 8px; }
+  .metric-item { padding: 9px 12px; }
+  .metric-item > strong { margin-top: 3px; font-size: 16px; }
+  .metric-item > small { margin-top: 2px; }
+  .mobile-tab-bar { position: relative; top: auto; right: auto; bottom: auto; left: auto; display: grid; flex: 0 0 auto; min-height: 60px; grid-template-columns: repeat(4,minmax(0,1fr)); margin: 8px max(20px, var(--safe-right)) max(12px, var(--safe-bottom)) max(20px, var(--safe-left)); overflow: hidden; background: var(--mobile-surface); border-color: var(--line); box-shadow: 0 6px 18px rgba(30, 43, 37, 0.08); }
+  .mobile-tab-bar::after { background: transparent; }
+  .mobile-tab-bar button { min-height: 50px; }
+  .app-footer { display: none; }
+  .operation-notice { position: absolute; right: 12px; bottom: calc(80px + var(--safe-bottom)); left: 12px; z-index: 50; margin: 0; max-height: 35%; overflow: auto; padding: 10px 12px; font-size: 13px; box-shadow: 0 8px 24px #0002; }
+  :root[data-keyboard="true"] .workspace-header, :root[data-keyboard="true"] .command-bar { display: none; }
+  :root[data-keyboard="true"] .mobile-tab-bar { min-height: 46px; margin-top: 4px; margin-bottom: 4px; }
+  :root[data-keyboard="true"] .mobile-tab-bar button { min-height: 36px; flex-direction: row; gap: 5px; }
+  :root[data-keyboard="true"] .transmit-panel { gap: 6px; padding-top: 8px; }
+  :root[data-keyboard="true"] .transmit-panel .section-heading, :root[data-keyboard="true"] .quick-examples, :root[data-keyboard="true"] .transmit-panel > .detail-trigger { display: none; }
+}
+
+@media (min-width: 761px) and (max-width: 1100px) and (max-height: 550px) {
+  .workspace-header { min-height: calc(58px + var(--safe-top)); }
+  .format-picker { flex-direction: row; align-items: center; }
+  .command-bar { min-height: 52px; padding-top: 3px; padding-bottom: 3px; }
+  .work-panel, .receiver-section, .diagnostics-section, .ggwave-app .diagnostics-section { padding-top: 8px; gap: 8px; }
+  .transmit-panel { display: grid; grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr); grid-template-rows: auto auto minmax(60px, 1fr) auto; column-gap: 20px; }
+  .transmit-panel .section-heading { grid-column: 1; grid-row: 1; }
+  .transmit-panel .field-label { grid-column: 1; grid-row: 2; }
+  .transmit-panel textarea { grid-column: 1; grid-row: 3 / 5; height: 100%; min-height: 60px; }
+  .transmit-panel .quick-examples { grid-column: 2; grid-row: 1 / 3; }
+  .transmit-panel .primary-action { grid-column: 2; grid-row: 3; align-self: center; }
+  .transmit-panel .detail-trigger { grid-column: 2; grid-row: 4; }
+  .receiver-heading { flex-direction: row; align-items: center; }
+  .receiver-heading .receive-actions { width: auto; }
+  .signal-panel { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); grid-template-rows: auto minmax(52px,1fr) auto auto; column-gap: 20px; }
+  .signal-panel .section-heading { grid-column: 1 / 3; grid-row: 1; }
+  .signal-panel .waveform-shell { grid-column: 1; grid-row: 2 / 5; max-height: none; }
+  .signal-panel .audio-toolbar { grid-column: 2; grid-row: 2; }
+  .signal-panel > .detail-trigger { grid-column: 2; grid-row: 3; }
+  .signal-panel > .secondary-action { grid-column: 2; grid-row: 4; }
+  .ggwave-app .signal-panel > .receive-actions { grid-column: 2; grid-row: 3; }
+  .ggwave-app .signal-panel > .detail-trigger { grid-column: 2; grid-row: 4; }
+  .receiver-grid { min-height: 94px; flex-direction: row; }
+  .receiver-grid .telemetry { width: 34%; min-width: 240px; }
+  .receiver-grid .telemetry dl { grid-template-columns: 1fr; }
+  .decoded-output { border-bottom: 0; border-right: 1px solid var(--line); }
+  .metrics-band { grid-template-columns: repeat(5,minmax(0,1fr)); }
+  .diagnostic-cards { display: grid; grid-template-columns: 2fr 1fr; }
+  .diagnostic-cards .telemetry dl { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 16px; }
+  .mobile-tab-bar { min-height: 48px; margin-top: 4px; margin-bottom: max(6px,var(--safe-bottom)); }
+  .mobile-tab-bar button { min-height: 38px; flex-direction: row; gap: 6px; }
+  :root[data-keyboard="true"] .transmit-panel { display: flex; }
+  :root[data-keyboard="true"] .transmit-panel textarea { height: 0; }
+}
+@media (max-width: 360px) {
+  .workspace-header .brand-mark { display: none; }
+  .workspace-header { padding-right: max(12px,var(--safe-right)); padding-left: max(12px,var(--safe-left)); }
+  .format-picker { gap: 5px; }
+  .format-label { font-size: 10px; }
+  .page-switch button { padding-right: 7px; padding-left: 7px; }
+  .mode-group { gap: 8px; }
+}
+@media (max-width: 760px) and (max-height: 620px) {
+  .receiver-section { gap: 6px; padding-top: 12px; }
+  .receiver-grid { min-height: 146px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; animation-iteration-count: 1 !important; }
+  ::view-transition-group(*), ::view-transition-old(*), ::view-transition-new(*) { animation: none !important; }
+}
+
+/* The compact shell previously replaced the capsule with an opaque surface. Keep the
+   navigation translucent so the WebView can provide the same backdrop refraction. */
+@media (max-width: 760px), (max-width: 1100px) and (max-height: 550px) {
+  .mobile-tab-bar {
+    background:
+      linear-gradient(180deg, color-mix(in srgb, var(--paper) 62%, transparent), color-mix(in srgb, var(--paper) 34%, transparent)),
+      color-mix(in srgb, var(--mobile-surface) 58%, transparent);
+    border-color: color-mix(in srgb, var(--ink) 22%, transparent);
+    -webkit-backdrop-filter: blur(22px) saturate(168%);
+    backdrop-filter: blur(22px) saturate(168%);
+  }
+
+  @supports not (backdrop-filter: blur(1px)) {
+    .mobile-tab-bar { background: var(--mobile-surface); }
+  }
+}

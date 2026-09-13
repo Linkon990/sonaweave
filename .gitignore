@@ -4,3 +4,6 @@ dist/
 *.local
 *.log
 coverage/
+
+test-results/
+playwright-report/

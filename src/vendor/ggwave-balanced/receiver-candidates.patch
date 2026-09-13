@@ -1,0 +1,114 @@
+--- a/src/ggwave.cpp
++++ b/src/ggwave.cpp
+@@ -1513,6 +1513,11 @@
+         const int step = m_samplesPerFrame/stepsPerFrame;
+
+         bool isValid = false;
++        // A short payload has only two ECC bytes. A wrong-speed candidate can
++        // therefore also be a valid codeword. Rank valid candidates by how well
++        // each symbol concentrates energy into its six expected tone bands.
++        double bestScore = -1.0;
++        uint8_t bestData[kMaxLengthVariable] = {};
+         for (int protocolId = 0; protocolId < (int) m_rx.protocols.size(); ++protocolId) {
+             const auto & protocol = m_rx.protocols[protocolId];
+             if (protocol.enabled == false) {
+@@ -1539,8 +1544,10 @@
+                 bool knownLength = false;
+
+                 int decodedLength = 0;
++                double symbolScores[256] = {};
++                int symbolsRead = 0;
+                 const int offsetStart = ii;
+-                for (int itx = 0; itx < 1024; ++itx) {
++                for (int itx = 0; itx < (int) (sizeof(symbolScores)/sizeof(symbolScores[0])); ++itx) {
+                     int offsetTx = offsetStart + itx*protocol.framesPerTx*stepsPerFrame;
+                     if (offsetTx >= m_rx.recvDuration_frames*stepsPerFrame || (itx + 1)*protocol.bytesPerTx >= (int) m_dataEncoded.size()) {
+                         break;
+@@ -1567,19 +1574,23 @@
+                     }
+
+                     uint8_t curByte = 0;
++                    double symbolScore = 0.0;
+                     for (int i = 0; i < 2*protocol.bytesPerTx; ++i) {
+                         double freq = m_hzPerSample*protocol.freqStart;
+                         int bin = round(freq*m_ihzPerSample) + 16*i;
+
+                         int kmax = 0;
+                         double amax = 0.0;
++                        double power = 0.0;
+                         for (int k = 0; k < 16; ++k) {
++                            power += m_rx.spectrum[bin + k];
+                             if (m_rx.spectrum[bin + k] > amax) {
+                                 kmax = k;
+                                 amax = m_rx.spectrum[bin + k];
+                             }
+                         }
+
++                        symbolScore += power > 0.0 ? amax/power : 0.0;
+                         if (i%2) {
+                             curByte += (kmax << 4);
+                             m_dataEncoded[itx*protocol.bytesPerTx + i/2] = curByte;
+@@ -1588,6 +1599,9 @@
+                             curByte = kmax;
+                         }
+                     }
++
++                    symbolScores[itx] = symbolScore/(2*protocol.bytesPerTx);
++                    symbolsRead = itx + 1;
+
+                     if (itx*protocol.bytesPerTx > m_encodedDataOffset && knownLength == false) {
+                         RS::ReedSolomon rsLength(1, m_encodedDataOffset - 1, m_workRSLength.data());
+@@ -1615,11 +1629,19 @@
+                     }
+                 }
+
+-                if (knownLength) {
++                // Upstream omits the final partly padded group at its 140-byte
++                // buffer limit. Allow that sub-group erasure, never whole unread groups.
++                const int bytesNeeded = m_encodedDataOffset + decodedLength + ::getECCBytesForLength(decodedLength);
++                if (knownLength && bytesNeeded - symbolsRead*protocol.bytesPerTx < protocol.bytesPerTx) {
+                     RS::ReedSolomon rsData(decodedLength, ::getECCBytesForLength(decodedLength), m_workRSData.data());
+
+                     if (rsData.Decode(m_dataEncoded.data() + m_encodedDataOffset, m_rx.data.data()) == 0) {
+-                        if (decodedLength > 0) {
++                        const int groups = (m_encodedDataOffset + decodedLength + ::getECCBytesForLength(decodedLength) + protocol.bytesPerTx - 1)/protocol.bytesPerTx;
++                        double score = 0.0;
++                        for (int group = 0; group < GG_MIN(groups, symbolsRead); ++group) score += symbolScores[group];
++                        score /= groups;
++                        if (decodedLength > 0 && score > bestScore) {
++                            bestScore = score;
+                             if (m_isDSSEnabled) {
+                                 for (int i = 0; i < decodedLength; ++i) {
+                                     m_rx.data[i] = m_rx.data[i] ^ getDSSMagic(i);
+@@ -1634,19 +1656,17 @@
+                             m_rx.dataLength = decodedLength;
+                             m_rx.protocol = protocol;
+                             m_rx.protocolId = RxProtocolId(protocolId);
++                            memcpy(bestData, m_rx.data.data(), decodedLength);
+                         }
+                     }
+                 }
+
+-                if (isValid) {
+-                    break;
+-                }
+                 --m_rx.framesLeftToAnalyze;
+             }
+
+-            if (isValid) break;
+-        }
+-
++        }
++
++        if (isValid) memcpy(m_rx.data.data(), bestData, m_rx.dataLength);
+         m_rx.framesToRecord = 0;
+
+         if (isValid == false) {
+@@ -1725,7 +1745,7 @@
+
+         for (int i = 0; i < m_rx.protocols.size(); ++i) {
+             const auto & protocol = m_rx.protocols[i];
+-            if (protocol.enabled == false) {
++            if (protocol.enabled == false || protocol.freqStart != m_rx.markerFreqStart) {
+                 continue;
+             }

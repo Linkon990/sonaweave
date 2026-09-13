@@ -89,7 +89,10 @@ export function compressLzw(input: Uint8Array): Uint8Array {
   return concatBytes(writeUint16(codes.length), packCodes(codes));
 }
 
-export function decompressLzw(input: Uint8Array): Uint8Array {
+export function decompressLzw(input: Uint8Array, maximumOutputLength = 0xffff): Uint8Array {
+  if (!Number.isSafeInteger(maximumOutputLength) || maximumOutputLength < 0 || maximumOutputLength > 0xffff) {
+    throw new Error("Invalid LZW output length limit");
+  }
   if (input.length < 2) {
     throw new Error("LZW payload is missing its code count");
   }
@@ -108,6 +111,10 @@ export function decompressLzw(input: Uint8Array): Uint8Array {
     throw new Error("LZW payload starts with an invalid code");
   }
 
+  if (previous.length > maximumOutputLength) {
+    throw new Error(`LZW output exceeds declared length (${maximumOutputLength} bytes)`);
+  }
+
   const output = [...previous];
 
   for (let index = 1; index < codes.length; index += 1) {
@@ -122,6 +129,11 @@ export function decompressLzw(input: Uint8Array): Uint8Array {
       throw new Error("LZW payload contains an invalid dictionary reference");
     }
 
+    // Check before output/dictionary allocation. A CRC-valid compressed frame
+    // can still be malformed and expand far beyond its declared byte length.
+    if (entry.length > maximumOutputLength - output.length) {
+      throw new Error(`LZW output exceeds declared length (${maximumOutputLength} bytes)`);
+    }
     output.push(...entry);
     if (nextCode <= MAX_CODE) {
       dictionary[nextCode] = [...previous, entry[0]];

@@ -9,12 +9,16 @@
         android:supportsRtl="true"
         android:theme="@style/AppTheme">
 
+        <!-- Let Android recreate the activity when the system night mode changes.
+             WebView derives prefers-color-scheme during initialization; handling
+             uiMode in-place leaves Chromium's media query stuck on the old value. -->
         <activity
-            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|smallestScreenSize|screenLayout|uiMode|navigation|density"
+            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|smallestScreenSize|screenLayout|navigation|density"
             android:name=".MainActivity"
             android:label="@string/title_activity_main"
             android:theme="@style/AppTheme.NoActionBarLaunch"
             android:launchMode="singleTask"
+            android:windowSoftInputMode="adjustResize"
             android:exported="true">
 
             <intent-filter>

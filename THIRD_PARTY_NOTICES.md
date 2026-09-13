@@ -1,0 +1,72 @@
+# Third-party notices
+
+SonaWeave includes ggwave 0.4.0, the data-over-sound library by Georgi Gerganov.
+The npm dependency is pinned as the upstream interoperability test reference.
+Production 0.2.2 uses the same verified upstream C++ sources with two added
+5/4-frame protocol configurations and a documented receive-candidate/marker
+selection patch. New protocols have distinct start frequencies (41/45 bins);
+the original 3-frame Fastest waveform is preserved.
+Local changes, source hashes and the reproducible Emscripten build are in
+src/vendor/ggwave-balanced; no FFT or Reed-Solomon implementation was modified.
+Its JavaScript file embeds WebAssembly, so all runtime assets are bundled locally
+for Web and Android and no network fetch is needed to initialize the modem.
+
+- Source: https://github.com/ggerganov/ggwave
+- Version tag: ggwave-v0.4.0
+- Commit: e035c75be1916ed8c0d1a38e823981366da3971e
+- npm JavaScript SHA-256: f3792b5c185345a35a935ca68a5064b97f979d13fbba0062ff16f6b3b31a6113
+- The npm package's JavaScript matches the file at this upstream tag exactly.
+- Reed-Solomon code bundled within ggwave is by Mike Lubinets, under MIT.
+
+The protocol choice was informed by GibberLink
+(https://github.com/PennyroyalTea/gibberlink, commit
+693ef3e36ee61da7e2323519711c0dfab327c284), which uses ggwave.
+No GibberLink application code, third-party AI service, telemetry, or account
+integration is included in SonaWeave.
+
+## ggwave license
+MIT License
+
+Copyright (c) 2020 Georgi Gerganov
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+## Reed-Solomon license
+
+Copyright © 2015 Mike Lubinets, github.com/mersinvald
+
+Permission is hereby granted, free of charge, to any person
+obtaining a copy of this software and associated documentation files
+(the “Software”), to deal in the Software without restriction,
+including without limitation the rights to use, copy, modify, merge,
+publish, distribute, sublicense, and/or sell copies of the Software,
+and to permit persons to whom the Software is furnished to do so,
+subject to the following conditions:
+
+The above copyright notice and this permission notice shall be
+included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
+BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
+ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.

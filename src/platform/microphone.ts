@@ -6,6 +6,8 @@ export type MicrophoneErrorCode =
   | "device-busy"
   | "constraints"
   | "aborted"
+  | "interrupted"
+  | "no-audio"
   | "recording-failed"
   | "unknown";
 
@@ -35,11 +37,21 @@ export interface MicrophoneRuntime {
   mediaDevices?: MediaDevicesLike;
 }
 
-const PREFERRED_AUDIO_CONSTRAINTS: MediaTrackConstraints = {
+export type MicrophoneOptions = { deviceId?: string };
+export type MicrophoneInput = { deviceId: string; label: string };
+
+// Keep voice processing disabled on every retry: these filters can remove the
+// deliberately steady modem tones. Only rate/channel preferences may be relaxed.
+const RAW_AUDIO_CONSTRAINTS: MediaTrackConstraints = {
   autoGainControl: { ideal: false },
-  channelCount: { ideal: 1 },
   echoCancellation: { ideal: false },
   noiseSuppression: { ideal: false },
+};
+
+const PREFERRED_AUDIO_CONSTRAINTS: MediaTrackConstraints = {
+  ...RAW_AUDIO_CONSTRAINTS,
+  // Do not ask the browser to downmix an unknown microphone array to mono.
+  // Preserve the available channels; the recorder selects one without averaging.
   sampleRate: { ideal: 48_000 },
 };
 
@@ -109,15 +121,38 @@ async function retrySpecificInput(mediaDevices: MediaDevicesLike): Promise<Media
     return undefined;
   }
 
-  if (inputs.length === 0) return undefined;
-
-  return mediaDevices.getUserMedia({
-    audio: { deviceId: { exact: inputs[0].deviceId } },
-    video: false,
-  });
+  let lastError: MicrophoneError | undefined;
+  for (const deviceId of new Set(inputs.map((input) => input.deviceId))) {
+    try {
+      return await mediaDevices.getUserMedia({
+        audio: { ...RAW_AUDIO_CONSTRAINTS, deviceId: { exact: deviceId } },
+        video: false,
+      });
+    } catch (error) {
+      lastError = normalizeMicrophoneError(error);
+      if (!["device-not-found", "device-busy", "constraints"].includes(lastError.code)) throw lastError;
+    }
+  }
+  if (lastError) throw lastError;
+  return undefined;
 }
 
-export async function requestMicrophoneStream(runtime: MicrophoneRuntime = currentRuntime()): Promise<MediaStream> {
+/** Listing never opens a microphone; labels may be absent until permission is granted. */
+export async function listMicrophoneInputs(runtime: MicrophoneRuntime = currentRuntime()): Promise<MicrophoneInput[]> {
+  if (!runtime.secureContext || !runtime.mediaDevices?.enumerateDevices) return [];
+  try {
+    const inputs = (await runtime.mediaDevices.enumerateDevices()).filter((device) =>
+      device.kind === "audioinput" && Boolean(device.deviceId) && device.deviceId !== "default");
+    return [...new Map(inputs.map((device, index) => [device.deviceId, {
+      deviceId: device.deviceId, label: device.label || `麦克风 ${index + 1}`,
+    }])).values()];
+  } catch { return []; }
+}
+
+export async function requestMicrophoneStream(
+  runtime: MicrophoneRuntime = currentRuntime(),
+  options: MicrophoneOptions = {},
+): Promise<MediaStream> {
   if (!runtime.secureContext) {
     throw new MicrophoneError("insecure-context", "Microphone access requires a secure context");
   }
@@ -127,24 +162,29 @@ export async function requestMicrophoneStream(runtime: MicrophoneRuntime = curre
     throw new MicrophoneError("unsupported", "getUserMedia is unavailable in this browser");
   }
 
+  const selected = options.deviceId && options.deviceId !== "default"
+    ? { deviceId: { exact: options.deviceId } } : {};
+
   try {
     return await mediaDevices.getUserMedia({
-      audio: PREFERRED_AUDIO_CONSTRAINTS,
+      audio: { ...PREFERRED_AUDIO_CONSTRAINTS, ...selected },
       video: false,
     });
   } catch (error) {
-    const normalized = normalizeMicrophoneError(error);
+    let normalized = normalizeMicrophoneError(error);
 
     if (normalized.code === "constraints" || normalized.code === "device-not-found") {
       try {
-        return await mediaDevices.getUserMedia({ audio: true, video: false });
+        return await mediaDevices.getUserMedia({ audio: { ...RAW_AUDIO_CONSTRAINTS, ...selected }, video: false });
       } catch (fallbackError) {
         const fallback = normalizeMicrophoneError(fallbackError);
-        if (fallback.code !== "device-not-found") throw fallback;
+        if (!["device-not-found", "device-busy", "constraints"].includes(fallback.code)) throw fallback;
+        normalized = fallback;
       }
     }
 
-    if (normalized.code === "device-not-found") {
+    // A deliberately selected endpoint must never silently become another mic.
+    if (!selected.deviceId && ["device-not-found", "device-busy", "constraints"].includes(normalized.code)) {
       try {
         const stream = await retrySpecificInput(mediaDevices);
         if (stream) return stream;
@@ -174,7 +214,11 @@ export function microphoneErrorMessage(error: unknown, nativeApp = false): strin
     case "constraints":
       return "麦克风不支持当前录音参数。请切换输入设备后重试。";
     case "aborted":
-      return "麦克风启动被系统中断，请重试。";
+      return "麦克风启动已取消，请重试。";
+    case "interrupted":
+      return "接收已中断：应用进入后台、音频被系统暂停或麦克风断开。请保持接收页面在前台并重新接收。";
+    case "no-audio":
+      return "麦克风已授权，但没有收到音频采样。请检查系统输入设备或关闭其他录音应用后重试。";
     case "unsupported":
       return "当前浏览器不支持所需的麦克风录音 API。请改用最新版 Chrome、Edge 或 Safari。";
     case "recording-failed":
@@ -182,14 +226,4 @@ export function microphoneErrorMessage(error: unknown, nativeApp = false): strin
     default:
       return `无法启动麦克风：${normalized.message}`;
   }
-}
-
-export function preferredRecorderMimeType(): string | undefined {
-  if (typeof MediaRecorder === "undefined" || typeof MediaRecorder.isTypeSupported !== "function") {
-    return undefined;
-  }
-
-  return ["audio/webm;codecs=opus", "audio/webm", "audio/mp4"].find((type) =>
-    MediaRecorder.isTypeSupported(type),
-  );
 }

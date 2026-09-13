@@ -5,6 +5,7 @@ const config: CapacitorConfig = {
   appName: "SonaWeave",
   webDir: "dist",
   android: {
+    minWebViewVersion: 111,
     allowMixedContent: false,
     backgroundColor: "#edf0ed",
   },

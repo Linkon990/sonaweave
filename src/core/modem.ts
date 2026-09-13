@@ -96,65 +96,6 @@ function writeTone(
   }
 }
 
-function findBestOffset(
-  minimumStart: number,
-  maximumStart: number,
-  coarseStep: number,
-  scoreAt: (start: number) => number,
-): { start: number; score: number } {
-  let bestStart = minimumStart;
-  let bestScore = Number.NEGATIVE_INFINITY;
-
-  for (let start = minimumStart; start <= maximumStart; start += coarseStep) {
-    const score = scoreAt(start);
-    if (score > bestScore) {
-      bestScore = score;
-      bestStart = start;
-    }
-  }
-
-  const refineStart = Math.max(minimumStart, bestStart - coarseStep);
-  const refineEnd = Math.min(maximumStart, bestStart + coarseStep);
-  for (let start = refineStart; start <= refineEnd; start += 1) {
-    const score = scoreAt(start);
-    if (score > bestScore) {
-      bestScore = score;
-      bestStart = start;
-    }
-  }
-
-  return { start: bestStart, score: bestScore };
-}
-
-function findSignalOnset(samples: Float32Array, sampleRate: number): number {
-  const windowLength = Math.max(32, Math.round(sampleRate * 0.008));
-  const windowCount = Math.floor(samples.length / windowLength);
-  if (windowCount < 3) return 0;
-
-  const levels = new Float64Array(windowCount);
-  for (let windowIndex = 0; windowIndex < windowCount; windowIndex += 1) {
-    let power = 0;
-    const start = windowIndex * windowLength;
-    for (let index = start; index < start + windowLength; index += 1) {
-      power += samples[index] * samples[index];
-    }
-    levels[windowIndex] = Math.sqrt(power / windowLength);
-  }
-
-  const sorted = Array.from(levels).sort((first, second) => first - second);
-  const floor = sorted[Math.floor(sorted.length * 0.05)] ?? 0;
-  const peak = sorted[sorted.length - 1] ?? 0;
-  const threshold = floor + (peak - floor) * 0.3;
-
-  for (let index = 0; index < levels.length - 1; index += 1) {
-    if (levels[index] >= threshold && levels[index + 1] >= threshold) {
-      return index * windowLength;
-    }
-  }
-
-  return 0;
-}
-
 function modulateFsk(bytes: Uint8Array): ModulatedSignal {
   const samplesPerSymbol = Math.round(SAMPLE_RATE / FSK_BAUD);
   const payloadBits = bytesToBits(bytes);
@@ -196,55 +137,6 @@ function classifyFsk(
   return {
     symbol: oneEnergy > zeroEnergy ? 1 : 0,
     confidence: Math.abs(oneEnergy - zeroEnergy) / total,
-  };
-}
-
-function demodulateFsk(samples: Float32Array, sampleRate: number): DemodulatedData {
-  const samplesPerSymbol = Math.round(sampleRate / FSK_BAUD);
-  const zeroBasis = createBasis(FSK_ZERO_HZ, samplesPerSymbol, sampleRate);
-  const oneBasis = createBasis(FSK_ONE_HZ, samplesPerSymbol, sampleRate);
-  const trainingLength = FSK_TRAINING.length * samplesPerSymbol;
-  const onset = findSignalOnset(samples, sampleRate);
-  const minimumStart = Math.max(0, onset - samplesPerSymbol * 2);
-  const maximumStart = Math.max(
-    minimumStart,
-    Math.min(onset + samplesPerSymbol * 2, samples.length - trainingLength - samplesPerSymbol),
-  );
-
-  const scoreTraining = (start: number): number => {
-    let score = 0;
-    for (let index = 0; index < FSK_TRAINING.length; index += 1) {
-      const result = classifyFsk(samples, start + index * samplesPerSymbol, zeroBasis, oneBasis);
-      score += (result.symbol === FSK_TRAINING[index] ? 1 : -1) * (0.4 + result.confidence);
-    }
-    return score;
-  };
-
-  const best = findBestOffset(
-    minimumStart,
-    maximumStart,
-    Math.max(2, Math.floor(samplesPerSymbol / 10)),
-    scoreTraining,
-  );
-  const payloadStart = best.start + trainingLength;
-  const symbolCount = Math.max(0, Math.floor((samples.length - payloadStart) / samplesPerSymbol));
-  const bits: number[] = [];
-  const symbolConfidences: number[] = [];
-
-  for (let index = 0; index < symbolCount; index += 1) {
-    const result = classifyFsk(samples, payloadStart + index * samplesPerSymbol, zeroBasis, oneBasis);
-    bits.push(result.symbol);
-    symbolConfidences.push(result.confidence);
-  }
-
-  return {
-    bytes: bitsToBytes(bits),
-    confidence:
-      symbolCount === 0 ? 0 : symbolConfidences.reduce((total, value) => total + value, 0) / symbolCount,
-    symbolConfidences,
-    syncScore: best.score / (FSK_TRAINING.length * 1.4),
-    symbolsRead: symbolCount,
-    startSample: best.start,
   };
 }
 
@@ -336,66 +228,251 @@ function classifyDtmf(
   };
 }
 
-function demodulateDtmf(samples: Float32Array, sampleRate: number): DemodulatedData {
-  const toneSamples = Math.round(sampleRate * DTMF_TONE_SECONDS);
-  const gapSamples = Math.round(sampleRate * DTMF_GAP_SECONDS);
-  const slotSamples = toneSamples + gapSamples;
-  const rowBases = DTMF_ROWS.map((frequency) => createBasis(frequency, toneSamples, sampleRate));
-  const columnBases = DTMF_COLUMNS.map((frequency) => createBasis(frequency, toneSamples, sampleRate));
-  const trainingLength = DTMF_TRAINING.length * slotSamples;
-  const onset = findSignalOnset(samples, sampleRate);
-  const minimumStart = Math.max(0, onset - slotSamples);
-  const maximumStart = Math.max(
-    minimumStart,
-    Math.min(onset + slotSamples, samples.length - trainingLength - slotSamples),
-  );
-
-  const scoreTraining = (start: number): number => {
-    let score = 0;
-    for (let index = 0; index < DTMF_TRAINING.length; index += 1) {
-      const result = classifyDtmf(samples, start + index * slotSamples, rowBases, columnBases);
-      score += (result.symbol === DTMF_TRAINING[index] ? 1 : -1) * (0.4 + result.confidence);
-    }
-    return score;
-  };
-
-  const best = findBestOffset(
-    minimumStart,
-    maximumStart,
-    Math.max(8, Math.floor(slotSamples / 16)),
-    scoreTraining,
-  );
-  const payloadStart = best.start + trainingLength;
-  const symbolCount = Math.max(0, Math.floor((samples.length - payloadStart) / slotSamples));
-  const nibbles: number[] = [];
-  const symbolConfidences: number[] = [];
-
-  for (let index = 0; index < symbolCount; index += 1) {
-    const result = classifyDtmf(samples, payloadStart + index * slotSamples, rowBases, columnBases);
-    nibbles.push(result.symbol);
-    symbolConfidences.push(result.confidence);
-  }
-
-  return {
-    bytes: nibblesToBytes(nibbles),
-    confidence:
-      symbolCount === 0 ? 0 : symbolConfidences.reduce((total, value) => total + value, 0) / symbolCount,
-    symbolConfidences,
-    syncScore: best.score / (DTMF_TRAINING.length * 1.4),
-    symbolsRead: symbolCount,
-    startSample: best.start,
-  };
-}
-
 export function modulate(bytes: Uint8Array, mode: ModemMode): ModulatedSignal {
   return mode === "fsk" ? modulateFsk(bytes) : modulateDtmf(bytes);
 }
 
-export function demodulate(samples: Float32Array, sampleRate: number, mode: ModemMode): DemodulatedData {
-  if (samples.length === 0) {
-    throw new Error("Audio buffer is empty");
+interface SymbolReading {
+  symbol: number;
+  confidence: number;
+}
+
+interface Receiver {
+  period: number;
+  hop: number;
+  training: readonly number[];
+  classify: (start: number) => SymbolReading;
+  classifyExact: (start: number) => SymbolReading;
+}
+
+export class TrainingNotFoundError extends Error {
+  constructor() {
+    super("No SonaWeave training sequence was found; listen before playback and record the complete signal");
+    this.name = "TrainingNotFoundError";
   }
-  return mode === "fsk" ? demodulateFsk(samples, sampleRate) : demodulateDtmf(samples, sampleRate);
+}
+
+// Sliding quadrature sums are O(recording length), with only one short ring
+// buffer per frequency. Retain energies at a sparse time grid, not PCM-sized
+// complex arrays or an FFT for every possible training offset.
+function energyTrack(
+  samples: Float32Array,
+  frequency: number,
+  sampleRate: number,
+  window: number,
+  hop: number,
+): Float32Array {
+  const output = new Float32Array(Math.max(0, Math.floor((samples.length - window) / hop) + 1));
+  const realRing = new Float64Array(window);
+  const imaginaryRing = new Float64Array(window);
+  const step = (2 * Math.PI * frequency) / sampleRate;
+  const rotationCos = Math.cos(step);
+  const rotationSin = Math.sin(step);
+  let cos = 1;
+  let sin = 0;
+  let real = 0;
+  let imaginary = 0;
+  for (let index = 0; index < samples.length; index += 1) {
+    const ringIndex = index % window;
+    const nextReal = samples[index] * cos;
+    const nextImaginary = samples[index] * sin;
+    real += nextReal - realRing[ringIndex];
+    imaginary += nextImaginary - imaginaryRing[ringIndex];
+    realRing[ringIndex] = nextReal;
+    imaginaryRing[ringIndex] = nextImaginary;
+    const start = index - window + 1;
+    if (start >= 0 && start % hop === 0) {
+      output[start / hop] = (real * real + imaginary * imaginary) / (window * window);
+    }
+    const nextCos = cos * rotationCos - sin * rotationSin;
+    sin = sin * rotationCos + cos * rotationSin;
+    cos = nextCos;
+  }
+  return output;
+}
+
+function createReceiver(samples: Float32Array, sampleRate: number, mode: ModemMode): Receiver {
+  // Keep fractional periods. Rounding 44,100/600 to 74 would lose half a
+  // sample every symbol and eventually turn a clean recording into bad bits.
+  const period = mode === "fsk" ? sampleRate / FSK_BAUD : sampleRate * (DTMF_TONE_SECONDS + DTMF_GAP_SECONDS);
+  const toneLength = mode === "fsk" ? period : sampleRate * DTMF_TONE_SECONDS;
+  const trim = Math.floor(toneLength * (mode === "fsk" ? 0.08 : 0.06));
+  const window = Math.max(4, Math.round(toneLength) - trim * 2);
+  const hop = Math.max(1, Math.floor(period / (mode === "fsk" ? 12 : 32)));
+  const frequencies = mode === "fsk" ? [FSK_ZERO_HZ, FSK_ONE_HZ] : [...DTMF_ROWS, ...DTMF_COLUMNS];
+  const tracks = frequencies.map((frequency) => energyTrack(samples, frequency, sampleRate, window, hop));
+  const bases = frequencies.map((frequency) => createBasis(frequency, Math.round(toneLength), sampleRate));
+  return {
+    period,
+    hop,
+    training: mode === "fsk" ? FSK_TRAINING : DTMF_TRAINING,
+    classify: (start) => {
+      const index = Math.round((start + trim) / hop);
+      if (mode === "fsk") {
+        const zero = tracks[0][index] ?? 0;
+        const one = tracks[1][index] ?? 0;
+        return { symbol: one > zero ? 1 : 0, confidence: Math.abs(one - zero) / (one + zero + 1e-12) };
+      }
+      const row = topTwo(tracks.slice(0, 4).map((track) => track[index] ?? 0));
+      const column = topTwo(tracks.slice(4).map((track) => track[index] ?? 0));
+      return { symbol: row.index * 4 + column.index, confidence: Math.min(row.confidence, column.confidence) };
+    },
+    classifyExact: (start) => mode === "fsk"
+      ? classifyFsk(samples, Math.round(start), bases[0], bases[1])
+      : classifyDtmf(samples, Math.round(start), bases.slice(0, 4), bases.slice(4)),
+  };
+}
+
+function trainingScore(receiver: Receiver, start: number, exact = false): number {
+  let score = 0;
+  let mismatches = 0;
+  const maximumMismatches = receiver.training.length === FSK_TRAINING.length ? 6 : 1;
+  for (let index = 0; index < receiver.training.length; index += 1) {
+    const result = (exact ? receiver.classifyExact : receiver.classify)(start + index * receiver.period);
+    if (result.confidence < 0.12 || result.symbol !== receiver.training[index]) {
+      mismatches += 1;
+      if (mismatches > maximumMismatches) return -1;
+    }
+    score += (result.symbol === receiver.training[index] ? 1 : -1) * result.confidence;
+  }
+  return score / receiver.training.length;
+}
+
+function findTrainingCandidates(receiver: Receiver, sampleCount: number): { start: number; score: number }[] {
+  const candidates: { start: number; score: number }[] = [];
+  const end = sampleCount - (receiver.training.length + 1) * receiver.period;
+  const threshold = receiver.training.length === FSK_TRAINING.length ? 0.65 : 0.55;
+  for (let start = 0; start <= end; start += receiver.hop) {
+    const score = trainingScore(receiver, start);
+    if (score < threshold) continue;
+    const previous = candidates[candidates.length - 1];
+    if (previous && start - previous.start < receiver.period * 2) {
+      if (score > previous.score) candidates[candidates.length - 1] = { start, score };
+    } else {
+      candidates.push({ start, score });
+    }
+  }
+  // Temporal order makes repeated recordings predictable; CRC rejection of one
+  // candidate must not suppress a later valid frame. No global onset gate.
+  return candidates.map((candidate) => {
+    let best = { start: candidate.start, score: trainingScore(receiver, candidate.start, true) };
+    for (let start = Math.max(0, candidate.start - receiver.hop); start <= candidate.start + receiver.hop; start += 1) {
+      const score = trainingScore(receiver, start, true);
+      if (score > best.score) best = { start, score };
+    }
+    return best;
+  });
+}
+
+function powerIntegral(samples: Float32Array): Float64Array {
+  const integral = new Float64Array(samples.length + 1);
+  for (let index = 0; index < samples.length; index += 1) {
+    integral[index + 1] = integral[index] + samples[index] * samples[index];
+  }
+  return integral;
+}
+
+// Both SWP-1 waveforms have an envelope minimum at symbol boundaries (a short
+// fade for FSK; an explicit gap for DTMF). Follow that minimum locally so small
+// independent playback/capture clock errors cannot accumulate over a message.
+function trackBoundary(integral: Float64Array, predicted: number, period: number, mode: ModemMode): number {
+  const phase = mode === "fsk" ? 0 : -period * DTMF_GAP_SECONDS / (DTMF_TONE_SECONDS + DTMF_GAP_SECONDS) / 2;
+  const radius = period * (mode === "fsk" ? 0.09 : 0.025);
+  const energy = (center: number, halfWidth: number) => {
+    const left = Math.max(0, Math.round(center - halfWidth));
+    const right = Math.min(integral.length - 1, Math.round(center + halfWidth));
+    return right <= left ? 0 : (integral[right] - integral[left]) / (right - left);
+  };
+  const reference = energy(predicted + period / 2, period / 2);
+  if (reference < 1e-10) return predicted;
+  let best = predicted;
+  let bestEnergy = energy(predicted + phase, radius);
+  const search = period * 0.16;
+  const step = Math.max(1, Math.floor(period / 100));
+  for (let offset = -search; offset <= search; offset += step) {
+    const level = energy(predicted + offset + phase, radius);
+    if (level < bestEnergy) {
+      best = predicted + offset;
+      bestEnergy = level;
+    }
+  }
+  if (bestEnergy > reference * 0.75) return predicted;
+  return predicted + Math.max(-period * 0.08, Math.min(period * 0.08, (best - predicted) * 0.8));
+}
+
+function readCandidate(
+  samples: Float32Array,
+  receiver: Receiver,
+  integral: Float64Array,
+  mode: ModemMode,
+  candidate: { start: number; score: number },
+  maximumBytes: number,
+  trackEnvelope: boolean,
+): DemodulatedData {
+  let position = candidate.start;
+  const symbols: number[] = [];
+  const symbolConfidences: number[] = [];
+  let symbolIndex = 0;
+  const maximumSymbols = maximumBytes * (mode === "fsk" ? 8 : 2);
+  while (position + receiver.period <= samples.length && symbols.length < maximumSymbols) {
+    if (trackEnvelope) position = trackBoundary(integral, position, receiver.period, mode);
+    if (symbolIndex >= receiver.training.length) {
+      const result = receiver.classifyExact(position);
+      symbols.push(result.symbol);
+      symbolConfidences.push(result.confidence);
+    }
+    symbolIndex += 1;
+    position = trackEnvelope ? position + receiver.period : candidate.start + symbolIndex * receiver.period;
+  }
+  return {
+    bytes: mode === "fsk" ? bitsToBytes(symbols) : nibblesToBytes(symbols),
+    confidence: symbolConfidences.reduce((total, value) => total + value, 0) / Math.max(1, symbols.length),
+    symbolConfidences,
+    syncScore: candidate.score,
+    symbolsRead: symbols.length,
+    startSample: Math.round(candidate.start),
+  };
+}
+
+export interface DemodulationCandidate {
+  read: (maximumBytes?: number) => DemodulatedData;
+}
+
+/** Search once; let the protocol layer probe each header before reading its payload. */
+export function* demodulateCandidates(
+  samples: Float32Array,
+  sampleRate: number,
+  mode: ModemMode,
+): Generator<DemodulationCandidate> {
+  if (!Number.isFinite(sampleRate) || sampleRate < 8_000 || sampleRate > 192_000) {
+    throw new Error("Unsupported audio sample rate (expected 8000–192000 Hz)");
+  }
+  if (samples.length === 0) throw new Error("Audio buffer is empty");
+  let peak = 0;
+  for (const sample of samples) {
+    if (!Number.isFinite(sample)) throw new Error("Audio contains invalid samples");
+    peak = Math.max(peak, Math.abs(sample));
+  }
+  if (peak < 1e-5) throw new Error("No audible signal was recorded");
+  const receiver = createReceiver(samples, sampleRate, mode);
+  const candidates = findTrainingCandidates(receiver, samples.length);
+  if (candidates.length === 0) throw new TrainingNotFoundError();
+  const integral = powerIntegral(samples);
+  for (const candidate of candidates) {
+    // Keep envelope recovery first for independent sample clocks and long
+    // frames. Filtering/reflections can move the waveform's energy minima, so
+    // a failed frame also gets a fixed fractional-period reading of this same
+    // training start. The protocol must validate its complete FEC and CRC before
+    // accepting it; preserve temporal order before advancing to a later frame.
+    yield { read: (maximumBytes = Infinity) => readCandidate(samples, receiver, integral, mode, candidate, maximumBytes, true) };
+    yield { read: (maximumBytes = Infinity) => readCandidate(samples, receiver, integral, mode, candidate, maximumBytes, false) };
+  }
+}
+
+export function demodulate(samples: Float32Array, sampleRate: number, mode: ModemMode): DemodulatedData {
+  const candidate = demodulateCandidates(samples, sampleRate, mode).next();
+  if (candidate.done) throw new TrainingNotFoundError();
+  return candidate.value.read();
 }
 
 export const modemSpecs = {
