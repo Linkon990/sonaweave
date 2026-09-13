@@ -1,6 +1,6 @@
 # Android 开发说明
 
-从 `sonaweave-android` 项目根目录执行本页命令。当前版本为 **0.2.2 / versionCode 6**，应用 ID 为 `com.sonaweave.app`。工程包含独立的 Web 源码和 Android 容器。
+从 `sonaweave-web` 项目根目录执行本页命令。当前版本为 **0.2.3 / versionCode 7**，应用 ID 为 `com.sonaweave.app`。工程使用根目录共享 Web 源码和 `android/` 容器。
 
 ## 环境与兼容性
 

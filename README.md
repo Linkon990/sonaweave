@@ -19,7 +19,7 @@ npm run test:e2e
 
 ## Android
 
-Android 工程位于 `android/`，使用 Capacitor 8；应用 ID 为 `com.sonaweave.app`，版本 0.2.2 / versionCode 6。
+Android 工程位于 `android/`，使用 Capacitor 8；应用 ID 为 `com.sonaweave.app`，版本 0.2.3 / versionCode 7。
 
 ```bash
 npm run android:debug
