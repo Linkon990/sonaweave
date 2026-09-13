@@ -192,7 +192,7 @@ export default function GgWaveApp({ text, onTextChange, mobileView, onViewChange
     finally { setBusy(undefined); }
   };
   const saveDiagnostic = () => evidence && doExport(() => exportDiagnostic({
-    app: "SonaWeave", version: "0.2.2", capturedAt: evidence.at, source: evidence.source,
+    app: "SonaWeave", version: "0.2.3", capturedAt: evidence.at, source: evidence.source,
     capture: evidence.audio.diagnostics, audio: evidence.analysis,
     result: { status: receive.status, mode: receive.report?.mode, decodedByteCount: receive.report
       ? new TextEncoder().encode(receive.report.text).length : undefined, error: receive.error, engineError: receive.engineError },
@@ -255,6 +255,6 @@ export default function GgWaveApp({ text, onTextChange, mobileView, onViewChange
       </section>
     </main>
     <nav className="mobile-tab-bar" data-motion={motion.active ? "moving" : "idle"} aria-label="主要工作区"><span key={motion.sequence} className={`mobile-tab-selection at-${mobileView}`} style={navStyle} aria-hidden="true" onAnimationEnd={event => { if (event.animationName !== "liquid-nav-slide") return; const sequence = motion.sequence; setMotion(current => current.sequence === sequence ? { ...current, active: false } : current); }}/>{tabs.map(({ view, label, Icon }) => <button key={view} type="button" className={mobileView === view ? "active" : ""} aria-current={mobileView === view ? "page" : undefined} aria-controls={`mobile-panel-${view}`} onClick={() => selectView(view)}><Icon size={20} aria-hidden="true"/><span>{label}</span></button>)}</nav>
-    <footer className="app-footer"><span>SonaWeave 0.2.2</span></footer>
+    <footer className="app-footer"><span>SonaWeave 0.2.3</span></footer>
   </div>;
 }

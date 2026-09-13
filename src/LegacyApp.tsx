@@ -884,7 +884,7 @@ function App({ text, onTextChange: setText, mobileView, onViewChange: setMobileV
         </button>
       </nav>
 
-      <footer className="app-footer"><span>SonaWeave 0.2.2</span></footer>
+      <footer className="app-footer"><span>SonaWeave 0.2.3</span></footer>
     </div>
   );
 }
